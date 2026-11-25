@@ -1,0 +1,2022 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ThreadBoard — Анонимный форум технических обсуждений</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+            mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+          },
+          colors: {
+            surface: {
+              950: '#0b0e14',
+              900: '#10151f',
+              850: '#151c29',
+              800: '#1b2434',
+              700: '#263248',
+            },
+            accent: {
+              500: '#38bdf8',
+              600: '#0284c7',
+            },
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0b0e14;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #263248;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #374766;
+    }
+    body {
+      font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    }
+  </style>
+</head>
+<body class="bg-surface-950 text-slate-100 font-sans antialiased min-h-screen flex flex-col selection:bg-sky-500/30 selection:text-sky-200">
+  <!-- Модальное окно напоминания о VPN и гостевом аккаунте Chrome при каждом заходе -->
+  <div id="hygieneModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+    <div class="max-w-lg w-full bg-surface-900 border border-amber-500/40 rounded-2xl p-5 sm:p-6 shadow-2xl space-y-4">
+      <div class="flex items-start justify-between gap-3">
+        <div class="flex items-center gap-2.5">
+          <span class="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-400/30 text-amber-300 flex items-center justify-center font-mono font-bold text-sm">
+            VPN
+          </span>
+          <div>
+            <span class="text-[11px] font-mono uppercase tracking-wider text-amber-300">Обязательное напоминание при входе</span>
+            <h2 class="text-base sm:text-lg font-semibold text-white">Проверь VPN и гостевой профиль Chrome</h2>
+          </div>
+        </div>
+      </div>
+
+      <div class="space-y-2.5 text-xs sm:text-sm text-slate-300 leading-relaxed bg-surface-950/80 border border-surface-800 rounded-xl p-4">
+        <p>
+          <strong class="text-white">1. Включи VPN:</strong> убедись, что туннель активен до начала работы с форумом, тредами и личными сообщениями.
+        </p>
+        <p>
+          <strong class="text-white">2. Используй гостевой аккаунт Chrome:</strong> открой форум в отдельном гостевом профиле Chrome (без синхронизации с личным аккаунтом, расширений и лишних cookie).
+        </p>
+        <p class="text-xs text-slate-400 pt-1 border-t border-surface-800/80">
+          Примечание: браузер по соображениям безопасности не запускает VPN и не открывает гостевое окно Chrome сам — проверь это вручную перед продолжением.
+        </p>
+      </div>
+
+      <label class="flex items-center gap-2.5 text-xs text-slate-300 cursor-pointer select-none">
+        <input id="hygieneConfirmCheckbox" type="checkbox" class="w-4 h-4 rounded border-surface-700 bg-surface-850 text-sky-500 focus:ring-sky-400" />
+        <span>Я включил VPN и использую гостевой профиль Chrome.</span>
+      </label>
+
+      <div id="hygieneError" class="hidden text-xs text-rose-400 bg-rose-950/40 border border-rose-500/30 rounded-lg px-3 py-2">
+        Подтверди пункт выше, чтобы продолжить работу с форумом.
+      </div>
+
+      <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+        <button
+          id="continueAsGuestModalBtn"
+          type="button"
+          class="px-3.5 py-2 rounded-lg text-xs sm:text-sm bg-surface-800 hover:bg-surface-700 text-slate-200 border border-surface-700 transition cursor-pointer"
+        >
+          Войти как гость
+        </button>
+        <button
+          id="confirmHygieneBtn"
+          type="button"
+          class="px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold bg-sky-500 hover:bg-sky-400 text-slate-950 transition cursor-pointer"
+        >
+          Продолжить на форум
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Модальное окно входа / регистрации по никнейму и паролю (без капчи) -->
+  <div id="authModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+    <div class="max-w-md w-full bg-surface-900 border border-surface-700 rounded-2xl p-5 sm:p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-surface-800 pb-3">
+        <div>
+          <h2 id="authModalTitle" class="text-base sm:text-lg font-semibold text-white">Вход в анонимный аккаунт</h2>
+          <p class="text-xs text-slate-400">Только никнейм и пароль — без капчи, почты и телефона.</p>
+        </div>
+        <button
+          id="closeAuthModalBtn"
+          type="button"
+          class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-surface-800 transition cursor-pointer"
+          aria-label="Закрыть окно аккаунта"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="grid grid-cols-2 gap-1.5 bg-surface-950 p-1 rounded-xl border border-surface-800 text-xs">
+        <button id="tabLoginBtn" type="button" class="py-2 rounded-lg font-medium bg-sky-500/20 text-sky-300 border border-sky-400/30 cursor-pointer">
+          Вход
+        </button>
+        <button id="tabRegisterBtn" type="button" class="py-2 rounded-lg font-medium text-slate-400 hover:text-slate-200 cursor-pointer">
+          Регистрация
+        </button>
+      </div>
+
+      <form id="authForm" class="space-y-3.5">
+        <div>
+          <label for="authUsername" class="block text-xs font-medium text-slate-300 mb-1">Никнейм *</label>
+          <input
+            id="authUsername"
+            type="text"
+            required
+            minlength="2"
+            maxlength="28"
+            placeholder="например: ghost_relay"
+            class="w-full px-3 py-2 text-sm font-mono rounded-lg bg-surface-850 text-white placeholder-slate-500 border border-surface-700 focus:outline-none focus:border-sky-400"
+          />
+        </div>
+
+        <div>
+          <label for="authPassword" class="block text-xs font-medium text-slate-300 mb-1">Пароль *</label>
+          <input
+            id="authPassword"
+            type="password"
+            required
+            minlength="4"
+            maxlength="64"
+            placeholder="Введите пароль"
+            class="w-full px-3 py-2 text-sm rounded-lg bg-surface-850 text-white placeholder-slate-500 border border-surface-700 focus:outline-none focus:border-sky-400"
+          />
+        </div>
+
+        <div id="authError" class="hidden text-xs text-rose-400 bg-rose-950/40 border border-rose-500/30 rounded-lg px-3 py-2"></div>
+
+        <div class="flex items-center justify-between gap-2 pt-1">
+          <button
+            id="switchToGuestBtn"
+            type="button"
+            class="px-3 py-2 rounded-lg text-xs text-slate-300 hover:bg-surface-800 border border-surface-700 transition cursor-pointer"
+          >
+            Войти как гость
+          </button>
+          <button
+            id="authSubmitBtn"
+            type="submit"
+            class="px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold bg-sky-500 hover:bg-sky-400 text-slate-950 transition cursor-pointer"
+          >
+            Войти
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Модальное окно личных сообщений (ЛС) -->
+  <div id="dmModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+    <div class="max-w-3xl w-full bg-surface-900 border border-surface-700 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+      <div class="px-5 py-3.5 border-b border-surface-800 flex items-center justify-between bg-surface-950/60">
+        <div>
+          <h2 class="text-base font-semibold text-white">Личные сообщения</h2>
+          <p class="text-xs text-slate-400">
+            Вы пишете от имени: <span id="dmCurrentUserLabel" class="font-mono text-sky-300">гость</span>
+          </p>
+        </div>
+        <button
+          id="closeDmModalBtn"
+          type="button"
+          class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-surface-800 transition cursor-pointer"
+          aria-label="Закрыть личные сообщения"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="flex-1 grid grid-cols-1 md:grid-cols-12 min-h-0">
+        <!-- Список собеседников и создание нового диалога -->
+        <div class="md:col-span-5 border-b md:border-b-0 md:border-r border-surface-800 p-3.5 space-y-3 overflow-y-auto">
+          <form id="newDmThreadForm" class="flex gap-1.5">
+            <input
+              id="newDmRecipientInput"
+              type="text"
+              maxlength="28"
+              placeholder="Ник собеседника..."
+              class="flex-1 px-2.5 py-1.5 text-xs font-mono rounded-lg bg-surface-850 text-white placeholder-slate-500 border border-surface-700 focus:outline-none focus:border-sky-400"
+            />
+            <button
+              type="submit"
+              class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-sky-500 hover:bg-sky-400 text-slate-950 transition cursor-pointer shrink-0"
+            >
+              Чат
+            </button>
+          </form>
+
+          <div id="dmConversationsList" class="space-y-1.5">
+            <!-- Заполняется через JS -->
+          </div>
+        </div>
+
+        <!-- Окно выбранного диалога -->
+        <div class="md:col-span-7 flex flex-col min-h-[280px] max-h-[60vh]">
+          <div id="dmActiveHeader" class="px-4 py-2.5 border-b border-surface-800 text-xs font-mono text-slate-300 bg-surface-850/40">
+            Выберите диалог
+          </div>
+
+          <div id="dmMessagesBox" class="flex-1 p-4 space-y-2.5 overflow-y-auto bg-surface-950/40">
+            <!-- Сообщения заполняются через JS -->
+          </div>
+
+          <form id="sendDmForm" class="p-3 border-t border-surface-800 flex gap-2 bg-surface-900">
+            <input
+              id="dmMessageInput"
+              type="text"
+              required
+              maxlength="600"
+              placeholder="Написать личное сообщение..."
+              class="flex-1 px-3 py-2 text-xs sm:text-sm rounded-lg bg-surface-850 text-white placeholder-slate-500 border border-surface-700 focus:outline-none focus:border-sky-400"
+            />
+            <button
+              type="submit"
+              class="px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold bg-sky-500 hover:bg-sky-400 text-slate-950 transition cursor-pointer shrink-0"
+            >
+              Отправить
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Верхняя навигационная панель -->
+  <header class="sticky top-0 z-30 bg-surface-900/95 backdrop-blur border-b border-surface-700/80">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+      <!-- Логотип и название раздела -->
+      <div class="flex items-center gap-3 min-w-0">
+        <button
+          id="resetAllBtn"
+          type="button"
+          class="flex items-center gap-2.5 text-left group focus:outline-none rounded-lg p-1 -ml-1"
+          title="Сбросить фильтры и вернуться в корень раздела"
+        >
+          <span class="w-9 h-9 rounded-lg bg-sky-500/15 border border-sky-400/30 flex items-center justify-center text-sky-400 font-mono font-bold text-base group-hover:bg-sky-500/25 transition">
+            /t/
+          </span>
+          <div class="truncate">
+            <div class="flex items-center gap-2">
+              <span class="font-semibold text-base sm:text-lg tracking-tight text-white">ThreadBoard</span>
+              <span class="hidden sm:inline-flex items-center px-2 py-0.5 text-xs font-mono rounded-md bg-surface-800 text-sky-300 border border-surface-700">
+                /d/netsec-lab
+              </span>
+            </div>
+            <p class="text-xs text-slate-400 truncate">Общий анонимный форум: треды, видео, папки, ЛС и гостевой вход</p>
+          </div>
+        </button>
+      </div>
+
+      <!-- Поиск, ЛС, аккаунт и кнопка создания треда -->
+      <div class="flex items-center gap-2 flex-wrap w-full sm:w-auto justify-end">
+        <div class="relative flex-1 sm:w-52 md:w-60">
+          <svg class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 104.5 4.5a7.5 7.5 0 0012.15 12.15z" />
+          </svg>
+          <input
+            id="searchInput"
+            type="search"
+            placeholder="Поиск по тредам и тегам..."
+            aria-label="Поиск по тредам"
+            class="w-full pl-9 pr-3 py-2 text-sm rounded-lg bg-surface-850 text-slate-100 placeholder-slate-500 border border-surface-700 focus:outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400 transition"
+          />
+        </div>
+
+        <button
+          id="openDmBtn"
+          type="button"
+          class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface-850 hover:bg-surface-800 text-slate-200 border border-surface-700 text-xs sm:text-sm font-medium transition cursor-pointer shrink-0"
+        >
+          <span>ЛС</span>
+          <span id="dmCountBadge" class="font-mono text-[11px] px-1.5 py-0.2 rounded bg-sky-500/20 text-sky-300">0</span>
+        </button>
+
+        <button
+          id="openAuthBtn"
+          type="button"
+          class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface-850 hover:bg-surface-800 text-slate-200 border border-surface-700 text-xs sm:text-sm font-mono transition cursor-pointer shrink-0"
+          title="Войти, зарегистрироваться или перейти в гостевой режим"
+        >
+          <span id="sessionBadge">гость</span>
+        </button>
+
+        <button
+          id="openHygieneBtn"
+          type="button"
+          class="inline-flex items-center gap-1 px-2.5 py-2 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-mono transition cursor-pointer shrink-0"
+          title="Напоминание про VPN и гостевой профиль Chrome"
+        >
+          VPN/Chrome
+        </button>
+
+        <button
+          id="openComposerBtn"
+          type="button"
+          class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-sky-500 hover:bg-sky-400 active:bg-sky-600 text-slate-950 font-semibold text-sm shadow-sm transition cursor-pointer shrink-0"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 4v16m8-8H4" />
+          </svg>
+          <span>Новый тред</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Полоса разделов -->
+    <div class="border-t border-surface-800 bg-surface-950/70">
+      <div id="subdreadBar" class="max-w-7xl mx-auto px-4 sm:px-6 py-2 flex items-center gap-2 overflow-x-auto text-xs">
+        <!-- Заполняется через JS -->
+      </div>
+    </div>
+  </header>
+
+  <!-- Уведомление-тост -->
+  <div id="toastBanner" class="fixed bottom-5 right-5 z-50 hidden max-w-sm">
+    <div class="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-surface-800 border border-sky-500/40 text-slate-100 shadow-xl text-sm">
+      <span class="w-2 h-2 rounded-full bg-sky-400 shrink-0"></span>
+      <span id="toastMessage">Действие выполнено</span>
+    </div>
+  </div>
+
+  <!-- Основной контейнер -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+    <!-- Левая/центральная колонка -->
+    <section class="lg:col-span-8 space-y-4 min-w-0">
+      <!-- Баннер статуса подключения к общей базе -->
+      <div id="syncStatusBanner" class="bg-surface-900/90 border border-surface-700/80 rounded-xl px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs">
+        <div class="flex items-center gap-2">
+          <span id="syncDot" class="w-2 h-2 rounded-full bg-amber-400"></span>
+          <span id="syncStatusText" class="text-slate-300">
+            Режим демо-базы в браузере: вставь свой <code class="font-mono text-sky-300">SUPABASE_URL</code> и <code class="font-mono text-sky-300">SUPABASE_ANON_KEY</code> внизу файла, чтобы посты и ЛС были общими у всех.
+          </span>
+        </div>
+        <button id="refreshCloudBtn" type="button" class="font-mono text-sky-300 hover:text-sky-200 underline cursor-pointer">
+          Обновить ленту
+        </button>
+      </div>
+
+      <!-- Панель фильтров по тегам и сортировки -->
+      <div class="bg-surface-900 border border-surface-700/80 rounded-xl p-3.5 space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="flex items-center gap-2 text-xs text-slate-400">
+            <span>Найдено тредов:</span>
+            <span id="resultsCount" class="font-mono font-semibold text-slate-200 bg-surface-800 px-2 py-0.5 rounded-md border border-surface-700">0</span>
+          </div>
+
+          <div class="flex items-center gap-1.5 bg-surface-850 p-1 rounded-lg border border-surface-700/80 text-xs">
+            <span class="text-slate-400 px-1.5 hidden sm:inline">Сортировка:</span>
+            <button data-sort="hot" type="button" class="sort-btn px-2.5 py-1 rounded-md font-medium transition cursor-pointer">
+              Популярные
+            </button>
+            <button data-sort="top" type="button" class="sort-btn px-2.5 py-1 rounded-md font-medium transition cursor-pointer">
+              Рейтинг
+            </button>
+            <button data-sort="new" type="button" class="sort-btn px-2.5 py-1 rounded-md font-medium transition cursor-pointer">
+              Новые
+            </button>
+            <button data-sort="discussed" type="button" class="sort-btn px-2.5 py-1 rounded-md font-medium transition cursor-pointer">
+              Обсуждаемые
+            </button>
+          </div>
+        </div>
+
+        <!-- Теги / флейры -->
+        <div id="tagFilterBar" class="flex items-center gap-1.5 flex-wrap pt-1 border-t border-surface-800/90">
+          <!-- Заполняется через JS -->
+        </div>
+      </div>
+
+      <!-- Скрываемая форма создания нового треда (с видео и папками) -->
+      <div id="composerPanel" class="hidden bg-surface-900 border border-sky-500/40 rounded-xl p-4 sm:p-5 shadow-lg space-y-4">
+        <div class="flex items-center justify-between border-b border-surface-800 pb-3">
+          <div>
+            <h2 class="text-base font-semibold text-white">Создать новый тред</h2>
+            <p class="text-xs text-slate-400">Можно добавить видео (ссылку или файл) и папки с материалами/заметками.</p>
+          </div>
+          <button
+            id="closeComposerBtn"
+            type="button"
+            class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-surface-800 transition cursor-pointer"
+            aria-label="Закрыть форму"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <form id="newThreadForm" class="space-y-3.5">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div class="sm:col-span-2">
+              <label for="threadTitle" class="block text-xs font-medium text-slate-300 mb-1">Заголовок треда *</label>
+              <input
+                id="threadTitle"
+                type="text"
+                required
+                maxlength="140"
+                placeholder="Например: Разбор сетевых логов и набор полезных скриптов"
+                class="w-full px-3 py-2 text-sm rounded-lg bg-surface-850 text-white placeholder-slate-500 border border-surface-700 focus:outline-none focus:border-sky-400"
+              />
+            </div>
+
+            <div>
+              <label for="threadFlair" class="block text-xs font-medium text-slate-300 mb-1">Тег (флейр)</label>
+              <select
+                id="threadFlair"
+                class="w-full px-3 py-2 text-sm rounded-lg bg-surface-850 text-white border border-surface-700 focus:outline-none focus:border-sky-400"
+              >
+                <option value="Инструменты">Инструменты</option>
+                <option value="OSINT">OSINT</option>
+                <option value="Безопасность">Безопасность</option>
+                <option value="Системы">Системы</option>
+                <option value="Гайд">Гайд</option>
+                <option value="Вопрос">Вопрос</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label for="threadSubdread" class="block text-xs font-medium text-slate-300 mb-1">Раздел</label>
+              <select
+                id="threadSubdread"
+                class="w-full px-3 py-2 text-sm rounded-lg bg-surface-850 text-white border border-surface-700 focus:outline-none focus:border-sky-400"
+              >
+                <option value="/d/netsec-lab">/d/netsec-lab — Сети и защита</option>
+                <option value="/d/osint-notes">/d/osint-notes — Разведка по открытым данным</option>
+                <option value="/d/sysadmin">/d/sysadmin — Linux, сети и инфраструктура</option>
+                <option value="/d/tooling">/d/tooling — Утилиты и автоматизация</option>
+              </select>
+            </div>
+
+            <div>
+              <label for="threadAuthor" class="block text-xs font-medium text-slate-300 mb-1">Никнейм автора</label>
+              <input
+                id="threadAuthor"
+                type="text"
+                maxlength="32"
+                placeholder="автоматически из текущей сессии"
+                class="w-full px-3 py-2 text-sm font-mono rounded-lg bg-surface-850 text-white placeholder-slate-500 border border-surface-700 focus:outline-none focus:border-sky-400"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label for="threadBody" class="block text-xs font-medium text-slate-300 mb-1">Текст обсуждения *</label>
+            <textarea
+              id="threadBody"
+              rows="3"
+              required
+              placeholder="Опиши задачу, контекст, используемые утилиты или вопрос для сообщества..."
+              class="w-full px-3 py-2 text-sm rounded-lg bg-surface-850 text-white placeholder-slate-500 border border-surface-700 focus:outline-none focus:border-sky-400"
+            ></textarea>
+          </div>
+
+          <!-- Блок добавления видео -->
+          <div class="bg-surface-850/70 border border-surface-700/80 rounded-xl p-3.5 space-y-2.5">
+            <div class="text-xs font-semibold text-sky-300">Видео в треде (необязательно)</div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div>
+                <label for="threadVideoUrl" class="block text-[11px] text-slate-400 mb-1">Прямая ссылка на видео (.mp4 / .webm)</label>
+                <input
+                  id="threadVideoUrl"
+                  type="url"
+                  placeholder="https://example.com/demo.mp4"
+                  class="w-full px-3 py-1.5 text-xs rounded-lg bg-surface-950 text-white placeholder-slate-500 border border-surface-700 focus:outline-none focus:border-sky-400"
+                />
+              </div>
+              <div>
+                <label for="threadVideoFile" class="block text-[11px] text-slate-400 mb-1">Или выбрать видеофайл с устройства</label>
+                <input
+                  id="threadVideoFile"
+                  type="file"
+                  accept="video/*"
+                  class="w-full text-xs text-slate-300 file:mr-2 file:py-1.5 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-sky-500/20 file:text-sky-300 hover:file:bg-sky-500/30"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- Блок добавления папок с материалами -->
+          <div class="bg-surface-850/70 border border-surface-700/80 rounded-xl p-3.5 space-y-2.5">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-semibold text-emerald-300">Папка с материалами / заметками (необязательно)</span>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div>
+                <label for="threadFolderName" class="block text-[11px] text-slate-400 mb-1">Название папки</label>
+                <input
+                  id="threadFolderName"
+                  type="text"
+                  maxlength="50"
+                  placeholder="Например: конфиги_и_чек-лист"
+                  class="w-full px-3 py-1.5 text-xs font-mono rounded-lg bg-surface-950 text-white placeholder-slate-500 border border-surface-700 focus:outline-none focus:border-sky-400"
+                />
+              </div>
+              <div>
+                <label for="threadFolderNote" class="block text-[11px] text-slate-400 mb-1">Элемент / заметка внутри папки</label>
+                <input
+                  id="threadFolderNote"
+                  type="text"
+                  maxlength="240"
+                  placeholder="Команда или ссылка: sha256sum archive.tar.gz"
+                  class="w-full px-3 py-1.5 text-xs rounded-lg bg-surface-950 text-white placeholder-slate-500 border border-surface-700 focus:outline-none focus:border-sky-400"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div id="formError" class="hidden text-xs text-rose-400 bg-rose-950/40 border border-rose-500/30 rounded-lg px-3 py-2"></div>
+
+          <div class="flex items-center justify-end gap-2.5 pt-1">
+            <button
+              id="cancelComposerBtn"
+              type="button"
+              class="px-3.5 py-2 rounded-lg text-sm text-slate-300 hover:bg-surface-800 transition cursor-pointer"
+            >
+              Отмена
+            </button>
+            <button
+              type="submit"
+              class="px-4 py-2 rounded-lg text-sm font-semibold bg-sky-500 hover:bg-sky-400 text-slate-950 transition cursor-pointer"
+            >
+              Опубликовать тред
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Список карточек тредов -->
+      <div id="threadsContainer" class="space-y-3.5">
+        <!-- Заполняется через JS -->
+      </div>
+
+      <!-- Пустое состояние -->
+      <div id="emptyState" class="hidden bg-surface-900 border border-surface-700/80 rounded-xl p-8 text-center space-y-3">
+        <div class="w-11 h-11 rounded-full bg-surface-800 border border-surface-700 flex items-center justify-center mx-auto text-slate-400 font-mono text-sm">
+          0/0
+        </div>
+        <h3 class="text-base font-semibold text-white">Подходящих тредов не найдено</h3>
+        <p class="text-sm text-slate-400 max-w-md mx-auto">
+          Попробуй изменить поисковый запрос, выбрать другой раздел или сбросить активный тег.
+        </p>
+        <button
+          id="emptyResetBtn"
+          type="button"
+          class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-surface-800 hover:bg-surface-700 text-sky-300 text-sm font-medium border border-surface-700 transition cursor-pointer"
+        >
+          Сбросить фильтры
+        </button>
+      </div>
+    </section>
+
+    <!-- Правая боковая панель -->
+    <aside class="lg:col-span-4 space-y-4 min-w-0">
+      <!-- Карточка раздела и статистика -->
+      <div class="bg-surface-900 border border-surface-700/80 rounded-xl p-4 space-y-4">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <span class="inline-flex items-center gap-1.5 text-xs font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 px-2 py-0.5 rounded-md">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+              Раздел активен
+            </span>
+            <h2 id="sidebarSubdreadTitle" class="text-base font-semibold text-white mt-2">
+              /d/netsec-lab — Сети и защита
+            </h2>
+          </div>
+        </div>
+
+        <p id="sidebarSubdreadDesc" class="text-xs sm:text-sm text-slate-400 leading-relaxed">
+          Практические заметки по сетевой гигиене, изоляции рабочих окружений, проверке файлов и анализу конфигураций.
+        </p>
+
+        <div id="statsGrid" class="grid grid-cols-3 gap-2 pt-2 border-t border-surface-800 text-center">
+          <!-- Заполняется через JS -->
+        </div>
+      </div>
+
+      <!-- Правила раздела -->
+      <div class="bg-surface-900 border border-surface-700/80 rounded-xl p-4 space-y-3">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+            <span class="w-2 h-2 rounded-sm bg-sky-400"></span>
+            Правила раздела
+          </h3>
+          <span class="text-[11px] font-mono text-slate-500">v2.0</span>
+        </div>
+
+        <ol class="space-y-2.5 text-xs sm:text-sm text-slate-300 list-decimal list-inside marker:text-sky-400 marker:font-mono">
+          <li class="leading-relaxed">
+            <span class="font-medium text-white">VPN и гость в Chrome:</span> включай VPN и открывай форум в гостевом профиле Chrome перед входом.
+          </li>
+          <li class="leading-relaxed">
+            <span class="font-medium text-white">Конкретика вместо воды:</span> описывай воспроизводимые шаги, версии утилит и условия теста.
+          </li>
+          <li class="leading-relaxed">
+            <span class="font-medium text-white">Контроль целостности:</span> для архивов, видео и папок указывай хэш <span class="font-mono text-xs text-sky-300">SHA-256</span> и проверяй в изоляции.
+          </li>
+          <li class="leading-relaxed">
+            <span class="font-medium text-white">Приватность и гигиена:</span> не публикуй чужие персональные данные, ключи доступа и токены.
+          </li>
+          <li class="leading-relaxed">
+            <span class="font-medium text-white">Корректные теги:</span> выбирай подходящий флейр, чтобы треды было проще искать.
+          </li>
+        </ol>
+      </div>
+
+      <!-- Блок технической заметки -->
+      <div class="bg-surface-900/80 border border-surface-800 rounded-xl p-4 space-y-2">
+        <div class="text-xs font-mono uppercase tracking-wider text-slate-400">Памятка по работе с файлами</div>
+        <p class="text-xs text-slate-400 leading-relaxed">
+          Любые неизвестные бинарные файлы, архивы или вложения из открытых тредов проверяй в отдельной виртуальной машине или контейнере с ограниченной сетью и сверяй контрольные суммы до запуска.
+        </p>
+      </div>
+    </aside>
+  </main>
+
+  <!-- Футер -->
+  <footer class="border-t border-surface-800 bg-surface-900/60 mt-10">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
+      <div>ThreadBoard • Готов к подключению бесплатной базы Supabase + GitHub Pages</div>
+      <div class="font-mono">Голоса • Комментарии • Видео • Папки • ЛС</div>
+    </div>
+  </footer>
+
+  <script>
+    /**
+     * БЕСПЛАТНОЕ ПОДКЛЮЧЕНИЕ ДЛЯ ВСЕХ ПОЛЬЗОВАТЕЛЕЙ (SUPABASE):
+     * 1. Создай бесплатный проект на supabase.com.
+     * 2. Выполни в SQL Editor таблицы posts, comments, accounts, direct_messages и bucket "forum-videos".
+     * 3. Вставь ниже свой Project URL и anon public key (если оставить пустыми — работает локальный демо-режим).
+     */
+    const SUPABASE_CONFIG = {
+      url: 'https://oqbapofsoypwzngggtdz.supabase.co',
+      anonKey: 'sb_publishable_-g2SzQAxKdUASpaBoF9lFg_3gtqrErs',
+      videoBucket: 'forum-videos',
+    };
+
+    const SUBDREADS = [
+      {
+        id: 'all',
+        label: 'Все разделы',
+        shortLabel: 'Все',
+        description: 'Общая лента технических тредов по сетевой безопасности, OSINT, системному администрированию и утилитам.',
+        members: '4.8k',
+        online: '142',
+      },
+      {
+        id: '/d/netsec-lab',
+        label: '/d/netsec-lab — Сети и защита',
+        shortLabel: '/d/netsec-lab',
+        description: 'Практические заметки по сетевой гигиене, изоляции рабочих окружений, проверке файлов и анализу конфигураций.',
+        members: '1.9k',
+        online: '58',
+      },
+      {
+        id: '/d/osint-notes',
+        label: '/d/osint-notes — Разведка по открытым данным',
+        shortLabel: '/d/osint-notes',
+        description: 'Методики верификации фактов, работа с открытыми реестрами, метаданными, DNS-записями и архивами.',
+        members: '1.3k',
+        online: '41',
+      },
+      {
+        id: '/d/sysadmin',
+        label: '/d/sysadmin — Linux, сети и инфраструктура',
+        shortLabel: '/d/sysadmin',
+        description: 'Настройка Linux-серверов, файрволов, логирования, резервного копирования и автоматизации рутинных задач.',
+        members: '1.1k',
+        online: '29',
+      },
+      {
+        id: '/d/tooling',
+        label: '/d/tooling — Утилиты и автоматизация',
+        shortLabel: '/d/tooling',
+        description: 'Обзоры CLI-утилит, скриптов на Python/Bash, парсеров и локальных инструментов для анализа данных.',
+        members: '890',
+        online: '14',
+      },
+    ];
+
+    const FLAIRS = ['Все теги', 'Инструменты', 'OSINT', 'Безопасность', 'Системы', 'Гайд', 'Вопрос'];
+
+    const FLAIR_STYLES = {
+      'Инструменты': 'bg-sky-500/15 text-sky-300 border-sky-500/30',
+      'OSINT': 'bg-violet-500/15 text-violet-300 border-violet-500/30',
+      'Безопасность': 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+      'Системы': 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+      'Гайд': 'bg-teal-500/15 text-teal-300 border-teal-500/30',
+      'Вопрос': 'bg-fuchsia-500/15 text-fuchsia-300 border-fuchsia-500/30',
+    };
+
+    const initialPosts = [
+      {
+        id: 't-101',
+        subdread: '/d/netsec-lab',
+        flair: 'Гайд',
+        title: 'Как выстроить изолированную виртуальную лабораторию для проверки сомнительных архивов и скриптов',
+        body: 'Когда приходится разбирать неизвестный архив, лог-дамп или скрипт из открытого источника, основной рабочий ПК лучше не задействовать. Использую отдельный снапшот виртуальной машины без общих папок с хостом, с отключённой сетью на этапе первичного осмотра и последующим откатом состояния после завершения теста.',
+        author: 'kestrel_ops',
+        role: 'Модератор',
+        createdAt: '2 ч назад',
+        orderIndex: 1,
+        score: 64,
+        videoUrl: '',
+        folders: [
+          {
+            name: 'lab_checklist',
+            items: [
+              'Отключить общие папки (Shared Folders) перед запуском ВМ',
+              'Снять SHA-256 файла до переноса в изолированную среду',
+            ],
+          },
+        ],
+        comments: [
+          {
+            id: 'c-1',
+            author: 'diff_check',
+            createdAt: '1 ч назад',
+            text: 'Отключать общие папки (Shared Folders) — критически важно. Многие забывают про них и получают утечку прямо на хост.',
+          },
+          {
+            id: 'c-2',
+            author: 'm_volkov',
+            createdAt: '42 мин назад',
+            text: 'Добавлю ещё привычку снимать хэш SHA-256 до переноса файла внутрь ВМ и фиксировать изменения файловой системы.',
+          },
+        ],
+      },
+      {
+        id: 't-102',
+        subdread: '/d/osint-notes',
+        flair: 'OSINT',
+        title: 'Чек-лист проверки доменных связей и исторических DNS-записей без лишнего шума',
+        body: 'При анализе инфраструктуры проекта полезно сопоставить текущие A/AAAA и MX записи с историческими снимками, проверить сертификаты прозрачности (CT logs) и посмотреть, не пересекаются ли подсети или ASN.',
+        author: 'trace_cartographer',
+        role: null,
+        createdAt: '5 ч назад',
+        orderIndex: 2,
+        score: 49,
+        videoUrl: '',
+        folders: [
+          {
+            name: 'dns_osint_steps',
+            items: [
+              'Сверить текущие A/AAAA, NS и MX записи',
+              'Проверить CT logs и историю изменений подсетей/ASN',
+            ],
+          },
+        ],
+        comments: [
+          {
+            id: 'c-3',
+            author: 'net_observer',
+            createdAt: '3 ч назад',
+            text: 'Частая ошибка новичков — считать одинаковый IP на дешёвом шаред-хостинге доказательством связи двух доменов.',
+          },
+        ],
+      },
+    ];
+
+    const initialDirectMessages = {
+      kestrel_ops: [
+        {
+          id: 'dm-1',
+          sender: 'kestrel_ops',
+          recipient: 'гость_chrome',
+          time: 'сегодня',
+          text: 'Привет! Не забывай про VPN и гостевой профиль Chrome при каждом заходе.',
+        },
+      ],
+    };
+
+    const state = {
+      posts: JSON.parse(JSON.stringify(initialPosts)),
+      activeSubdread: 'all',
+      activeFlair: 'Все теги',
+      sortBy: 'hot',
+      searchQuery: '',
+      userVotes: {},
+      expandedComments: new Set(['t-101']),
+      session: { mode: 'guest', username: 'гость_chrome' },
+      users: {},
+      authTab: 'login',
+      directMessages: JSON.parse(JSON.stringify(initialDirectMessages)),
+      activeDmPeer: 'kestrel_ops',
+    };
+
+    function isCloudConfigured() {
+      return Boolean(
+        SUPABASE_CONFIG.url &&
+        SUPABASE_CONFIG.anonKey &&
+        !SUPABASE_CONFIG.url.includes('YOUR_PROJECT') &&
+        !SUPABASE_CONFIG.anonKey.includes('YOUR_ANON')
+      );
+    }
+
+    function updateSyncBanner(isConnected, customMsg) {
+      const dot = document.getElementById('syncDot');
+      const text = document.getElementById('syncStatusText');
+      if (!dot || !text) return;
+
+      if (customMsg) {
+        text.textContent = customMsg;
+      } else if (isConnected) {
+        dot.className = 'w-2 h-2 rounded-full bg-emerald-400';
+        text.textContent = 'Подключена общая облачная база Supabase: треды, комментарии, видео и ЛС доступны всем пользователям.';
+      } else {
+        dot.className = 'w-2 h-2 rounded-full bg-amber-400';
+        text.innerHTML =
+          'Локальный режим без общей базы: заполни <code class="font-mono text-sky-300">SUPABASE_CONFIG</code> в коде файла, чтобы данные были общими у всех.';
+      }
+    }
+
+    // Универсальный помощник для REST-запросов к Supabase
+    async function sbRest(path, options = {}) {
+      const baseUrl = SUPABASE_CONFIG.url.replace(/\/+$/, '');
+      const res = await fetch(`${baseUrl}/rest/v1/${path}`, {
+        ...options,
+        headers: {
+          apikey: SUPABASE_CONFIG.anonKey,
+          Authorization: `Bearer ${SUPABASE_CONFIG.anonKey}`,
+          'Content-Type': 'application/json',
+          ...(options.headers || {}),
+        },
+      });
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(errText || `HTTP ${res.status}`);
+      }
+      if (res.status === 204) return null;
+      return res.json();
+    }
+
+    // Хэширование пароля через SHA-256 перед сохранением/проверкой
+    async function hashPassword(password) {
+      const data = new TextEncoder().encode(password);
+      const digest = await crypto.subtle.digest('SHA-256', data);
+      return Array.from(new Uint8Array(digest))
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+    }
+
+    // Загрузка постов и комментариев из облака
+    async function loadCloudData() {
+      if (!isCloudConfigured()) {
+        updateSyncBanner(false);
+        return;
+      }
+
+      try {
+        const [postsRows, commentsRows] = await Promise.all([
+          sbRest('posts?select=*&order=order_index.desc'),
+          sbRest('comments?select=*&order=created_at.asc'),
+        ]);
+
+        const commentsByPost = {};
+        (commentsRows || []).forEach((c) => {
+          if (!commentsByPost[c.post_id]) commentsByPost[c.post_id] = [];
+          commentsByPost[c.post_id].push({
+            id: c.id,
+            author: c.author,
+            createdAt: c.created_label || 'недавно',
+            text: c.text,
+          });
+        });
+
+        state.posts = (postsRows || []).map((p, idx) => ({
+          id: p.id,
+          subdread: p.subdread,
+          flair: p.flair,
+          title: p.title,
+          body: p.body,
+          author: p.author,
+          role: p.role || null,
+          createdAt: p.created_label || 'недавно',
+          orderIndex: p.order_index || (postsRows.length - idx),
+          score: Number(p.score) || 0,
+          videoUrl: p.video_url || '',
+          folders: Array.isArray(p.folders) ? p.folders : [],
+          comments: commentsByPost[p.id] || [],
+        }));
+
+        updateSyncBanner(true);
+        renderAll();
+      } catch (err) {
+        console.error('Ошибка загрузки из Supabase:', err);
+        updateSyncBanner(false, `Ошибка связи с базой: ${err.message}`);
+      }
+    }
+
+    // Загрузка личных сообщений из облака
+    async function loadCloudDms() {
+      if (!isCloudConfigured()) return;
+      try {
+        const rows = await sbRest('direct_messages?select=*&order=created_at.asc');
+        const grouped = {};
+        (rows || []).forEach((m) => {
+          const me = getCurrentDisplayAuthor();
+          const peer = m.sender === me ? m.recipient : m.sender;
+          if (!peer) return;
+          if (!grouped[peer]) grouped[peer] = [];
+          grouped[peer].push({
+            id: m.id,
+            sender: m.sender,
+            recipient: m.recipient,
+            time: m.created_label || 'недавно',
+            text: m.text,
+          });
+        });
+        if (Object.keys(grouped).length > 0) {
+          state.directMessages = grouped;
+        }
+        updateSessionUI();
+      } catch (err) {
+        console.error('Ошибка загрузки ЛС:', err);
+      }
+    }
+
+    // Загрузка видеофайла в Supabase Storage
+    async function uploadVideoToStorage(file) {
+      if (!isCloudConfigured() || !file) return '';
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const objectPath = `${Date.now()}_${safeName}`;
+      const baseUrl = SUPABASE_CONFIG.url.replace(/\/+$/, '');
+      const uploadUrl = `${baseUrl}/storage/v1/object/${SUPABASE_CONFIG.videoBucket}/${encodeURIComponent(objectPath)}`;
+
+      const res = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+          apikey: SUPABASE_CONFIG.anonKey,
+          Authorization: `Bearer ${SUPABASE_CONFIG.anonKey}`,
+          'Content-Type': file.type || 'video/mp4',
+          'x-upsert': 'true',
+        },
+        body: file,
+      });
+
+      if (!res.ok) {
+        throw new Error('Не удалось загрузить видео в Storage');
+      }
+
+      return `${baseUrl}/storage/v1/object/public/${SUPABASE_CONFIG.videoBucket}/${encodeURIComponent(objectPath)}`;
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function sanitizeMediaUrl(url) {
+      const trimmed = String(url || '').trim();
+      if (!trimmed) return '';
+      if (trimmed.startsWith('blob:') || trimmed.startsWith('https://') || trimmed.startsWith('http://')) {
+        return trimmed;
+      }
+      return '';
+    }
+
+    let toastTimeout = null;
+    function showToast(message) {
+      const banner = document.getElementById('toastBanner');
+      const textEl = document.getElementById('toastMessage');
+      if (!banner || !textEl) return;
+
+      textEl.textContent = message;
+      banner.classList.remove('hidden');
+
+      clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        banner.classList.add('hidden');
+      }, 2600);
+    }
+
+    function getCurrentDisplayAuthor() {
+      if (state.session.mode === 'user' && state.session.username) {
+        return state.session.username;
+      }
+      return 'гость_chrome';
+    }
+
+    function updateSessionUI() {
+      const badge = document.getElementById('sessionBadge');
+      const dmUserLabel = document.getElementById('dmCurrentUserLabel');
+      const dmCountBadge = document.getElementById('dmCountBadge');
+
+      if (badge) {
+        badge.textContent =
+          state.session.mode === 'user'
+            ? `акк: ${state.session.username}`
+            : 'гость';
+      }
+      if (dmUserLabel) {
+        dmUserLabel.textContent = getCurrentDisplayAuthor();
+      }
+      if (dmCountBadge) {
+        const totalMsgs = Object.values(state.directMessages).reduce((sum, arr) => sum + arr.length, 0);
+        dmCountBadge.textContent = String(totalMsgs);
+      }
+    }
+
+    function getEffectiveScore(post) {
+      const vote = state.userVotes[post.id] || 0;
+      return post.score + vote;
+    }
+
+    function getHotScore(post) {
+      const score = getEffectiveScore(post);
+      const commentsWeight = post.comments.length * 4;
+      const recencyBonus = Math.max(0, 20 - post.orderIndex * 2);
+      return score + commentsWeight + recencyBonus;
+    }
+
+    function getFilteredPosts() {
+      const q = state.searchQuery.trim().toLowerCase();
+
+      const filtered = state.posts.filter((post) => {
+        const matchSubdread = state.activeSubdread === 'all' || post.subdread === state.activeSubdread;
+        const matchFlair = state.activeFlair === 'Все теги' || post.flair === state.activeFlair;
+        const folderText = (post.folders || [])
+          .map((f) => `${f.name} ${(f.items || []).join(' ')}`)
+          .join(' ')
+          .toLowerCase();
+
+        const matchQuery =
+          !q ||
+          post.title.toLowerCase().includes(q) ||
+          post.body.toLowerCase().includes(q) ||
+          post.author.toLowerCase().includes(q) ||
+          post.flair.toLowerCase().includes(q) ||
+          post.subdread.toLowerCase().includes(q) ||
+          folderText.includes(q);
+
+        return matchSubdread && matchFlair && matchQuery;
+      });
+
+      filtered.sort((a, b) => {
+        if (state.sortBy === 'top') return getEffectiveScore(b) - getEffectiveScore(a);
+        if (state.sortBy === 'new') return b.orderIndex - a.orderIndex;
+        if (state.sortBy === 'discussed') return b.comments.length - a.comments.length || getEffectiveScore(b) - getEffectiveScore(a);
+        return getHotScore(b) - getHotScore(a);
+      });
+
+      return filtered;
+    }
+
+    function renderSubdreadBar() {
+      const container = document.getElementById('subdreadBar');
+      if (!container) return;
+
+      container.innerHTML = SUBDREADS.map((sub) => {
+        const active = state.activeSubdread === sub.id;
+        const classes = active
+          ? 'bg-sky-500/20 text-sky-300 border-sky-400/40 font-semibold'
+          : 'bg-surface-900 text-slate-400 border-surface-800 hover:text-slate-200 hover:border-surface-700';
+
+        return `
+          <button
+            type="button"
+            data-subdread="${escapeHtml(sub.id)}"
+            class="subdread-btn shrink-0 px-3 py-1.5 rounded-lg border transition cursor-pointer ${classes}"
+          >
+            ${escapeHtml(sub.shortLabel)}
+          </button>
+        `;
+      }).join('');
+
+      container.querySelectorAll('.subdread-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          state.activeSubdread = btn.getAttribute('data-subdread');
+          const selectEl = document.getElementById('threadSubdread');
+          if (selectEl && state.activeSubdread !== 'all') {
+            selectEl.value = state.activeSubdread;
+          }
+          renderAll();
+        });
+      });
+    }
+
+    function renderTagBar() {
+      const container = document.getElementById('tagFilterBar');
+      if (!container) return;
+
+      container.innerHTML = FLAIRS.map((flair) => {
+        const active = state.activeFlair === flair;
+        const activeCls = active
+          ? 'bg-sky-500 text-slate-950 border-sky-400 font-semibold'
+          : 'bg-surface-850 text-slate-300 border-surface-700/80 hover:border-slate-500 hover:text-white';
+
+        return `
+          <button
+            type="button"
+            data-flair="${escapeHtml(flair)}"
+            class="flair-btn text-xs px-2.5 py-1 rounded-md border transition cursor-pointer ${activeCls}"
+          >
+            ${escapeHtml(flair)}
+          </button>
+        `;
+      }).join('');
+
+      container.querySelectorAll('.flair-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          state.activeFlair = btn.getAttribute('data-flair');
+          renderAll();
+        });
+      });
+    }
+
+    function renderSortButtons() {
+      document.querySelectorAll('.sort-btn').forEach((btn) => {
+        const sortKey = btn.getAttribute('data-sort');
+        const active = state.sortBy === sortKey;
+        btn.className = active
+          ? 'sort-btn px-2.5 py-1 rounded-md font-medium transition cursor-pointer bg-sky-500/20 text-sky-300 border border-sky-400/30'
+          : 'sort-btn px-2.5 py-1 rounded-md font-medium transition cursor-pointer text-slate-400 hover:text-slate-200 border border-transparent';
+      });
+    }
+
+    function renderSidebar(visibleCount) {
+      const subObj = SUBDREADS.find((s) => s.id === state.activeSubdread) || SUBDREADS[0];
+      const titleEl = document.getElementById('sidebarSubdreadTitle');
+      const descEl = document.getElementById('sidebarSubdreadDesc');
+      const statsGrid = document.getElementById('statsGrid');
+
+      if (titleEl) titleEl.textContent = subObj.label;
+      if (descEl) descEl.textContent = subObj.description;
+
+      const totalComments = state.posts.reduce((acc, p) => acc + p.comments.length, 0);
+
+      if (statsGrid) {
+        statsGrid.innerHTML = `
+          <div class="bg-surface-850/90 rounded-lg p-2.5 border border-surface-800">
+            <div class="text-sm font-mono font-bold text-white">${state.posts.length}</div>
+            <div class="text-[11px] text-slate-400">Тредов</div>
+          </div>
+          <div class="bg-surface-850/90 rounded-lg p-2.5 border border-surface-800">
+            <div class="text-sm font-mono font-bold text-sky-400">${totalComments}</div>
+            <div class="text-[11px] text-slate-400">Ответов</div>
+          </div>
+          <div class="bg-surface-850/90 rounded-lg p-2.5 border border-surface-800">
+            <div class="text-sm font-mono font-bold text-emerald-400">${escapeHtml(subObj.online)}</div>
+            <div class="text-[11px] text-slate-400">В сети</div>
+          </div>
+        `;
+      }
+
+      const countBadge = document.getElementById('resultsCount');
+      if (countBadge) countBadge.textContent = String(visibleCount);
+    }
+
+    function renderThreads() {
+      const container = document.getElementById('threadsContainer');
+      const emptyState = document.getElementById('emptyState');
+      if (!container || !emptyState) return;
+
+      const posts = getFilteredPosts();
+      renderSidebar(posts.length);
+
+      if (posts.length === 0) {
+        container.innerHTML = '';
+        emptyState.classList.remove('hidden');
+        return;
+      }
+
+      emptyState.classList.add('hidden');
+
+      container.innerHTML = posts.map((post) => {
+        const userVote = state.userVotes[post.id] || 0;
+        const effectiveScore = getEffectiveScore(post);
+        const isExpanded = state.expandedComments.has(post.id);
+        const flairStyle = FLAIR_STYLES[post.flair] || 'bg-slate-800 text-slate-300 border-slate-700';
+
+        const upClass =
+          userVote === 1
+            ? 'text-sky-400 bg-sky-500/15 border-sky-500/30'
+            : 'text-slate-400 hover:text-sky-300 hover:bg-surface-800 border-transparent';
+        const downClass =
+          userVote === -1
+            ? 'text-rose-400 bg-rose-500/15 border-rose-500/30'
+            : 'text-slate-400 hover:text-rose-300 hover:bg-surface-800 border-transparent';
+
+        const safeVideoUrl = sanitizeMediaUrl(post.videoUrl);
+        const videoBlockHtml = safeVideoUrl
+          ? `
+            <div class="rounded-xl overflow-hidden border border-surface-700 bg-surface-950 p-2 space-y-1.5">
+              <div class="text-[11px] font-mono text-sky-300">Видеовложение</div>
+              <video controls preload="metadata" class="w-full max-h-80 rounded-lg bg-black" src="${escapeHtml(safeVideoUrl)}"></video>
+            </div>
+          `
+          : '';
+
+        const foldersBlockHtml = (post.folders && post.folders.length)
+          ? `
+            <div class="space-y-2">
+              ${post.folders
+                .map(
+                  (folder) => `
+                  <details class="rounded-xl border border-emerald-500/25 bg-surface-950/80 overflow-hidden">
+                    <summary class="px-3 py-2 text-xs font-mono text-emerald-300 cursor-pointer select-none hover:bg-surface-850/70">
+                      [папка] /${escapeHtml(folder.name)} (${(folder.items || []).length})
+                    </summary>
+                    <ul class="px-4 py-2.5 space-y-1.5 text-xs text-slate-300 border-t border-surface-800/80 list-disc marker:text-emerald-400">
+                      ${(folder.items || [])
+                        .map((item) => `<li class="break-words font-mono text-[11px] sm:text-xs">${escapeHtml(item)}</li>`)
+                        .join('')}
+                    </ul>
+                  </details>
+                `
+                )
+                .join('')}
+            </div>
+          `
+          : '';
+
+        const commentsHtml = post.comments.length
+          ? post.comments
+              .map(
+                (c) => `
+                <div class="p-3 rounded-lg bg-surface-950/75 border border-surface-800/90 space-y-1">
+                  <div class="flex items-center justify-between gap-2 text-xs">
+                    <span class="font-mono font-medium text-sky-300">${escapeHtml(c.author)}</span>
+                    <span class="text-slate-500">${escapeHtml(c.createdAt)}</span>
+                  </div>
+                  <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">${escapeHtml(c.text)}</p>
+                </div>
+              `
+              )
+              .join('')
+          : `<p class="text-xs text-slate-500 italic">Комментариев пока нет. Напиши первый ответ ниже.</p>`;
+
+        return `
+          <article class="bg-surface-900 border border-surface-700/80 hover:border-surface-600/90 rounded-xl transition overflow-hidden">
+            <div class="flex items-stretch">
+              <div class="w-12 sm:w-14 bg-surface-850/60 border-r border-surface-800/90 flex flex-col items-center py-3 gap-1 shrink-0 select-none">
+                <button
+                  type="button"
+                  data-vote-id="${escapeHtml(post.id)}"
+                  data-vote-dir="1"
+                  aria-label="Голосовать за тред"
+                  class="vote-btn w-8 h-8 rounded-lg border flex items-center justify-center transition cursor-pointer ${upClass}"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M5 15l7-7 7 7" />
+                  </svg>
+                </button>
+
+                <span class="font-mono text-xs sm:text-sm font-bold ${
+                  effectiveScore > 0 ? 'text-slate-100' : effectiveScore < 0 ? 'text-rose-400' : 'text-slate-400'
+                }">
+                  ${effectiveScore}
+                </span>
+
+                <button
+                  type="button"
+                  data-vote-id="${escapeHtml(post.id)}"
+                  data-vote-dir="-1"
+                  aria-label="Голосовать против треда"
+                  class="vote-btn w-8 h-8 rounded-lg border flex items-center justify-center transition cursor-pointer ${downClass}"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+              </div>
+
+              <div class="flex-1 p-4 sm:p-5 min-w-0 space-y-3">
+                <div class="flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                  <span class="font-mono text-sky-400 bg-sky-500/10 border border-sky-500/20 px-2 py-0.5 rounded">
+                    ${escapeHtml(post.subdread)}
+                  </span>
+                  <span class="px-2 py-0.5 rounded border font-medium ${flairStyle}">
+                    ${escapeHtml(post.flair)}
+                  </span>
+                  <span>•</span>
+                  <span>автор <strong class="font-mono text-slate-200 font-medium">${escapeHtml(post.author)}</strong></span>
+                  ${
+                    post.role
+                      ? `<span class="text-[11px] px-1.5 py-0.5 rounded bg-surface-800 text-slate-300 border border-surface-700">${escapeHtml(post.role)}</span>`
+                      : ''
+                  }
+                  <span>•</span>
+                  <span>${escapeHtml(post.createdAt)}</span>
+                </div>
+
+                <div class="space-y-2">
+                  <h2 class="text-base sm:text-lg font-semibold text-white leading-snug">
+                    ${escapeHtml(post.title)}
+                  </h2>
+                  <p class="text-sm text-slate-300 leading-relaxed whitespace-pre-line">
+                    ${escapeHtml(post.body)}
+                  </p>
+                </div>
+
+                ${videoBlockHtml}
+                ${foldersBlockHtml}
+
+                <div class="pt-2 border-t border-surface-800/80 flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      data-toggle-comments="${escapeHtml(post.id)}"
+                      class="toggle-comments-btn inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-surface-850 hover:bg-surface-800 text-slate-200 border border-surface-700/80 font-medium transition cursor-pointer"
+                    >
+                      <span>${isExpanded ? 'Скрыть ветку' : 'Комментарии'} (${post.comments.length})</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      data-pm-author="${escapeHtml(post.author)}"
+                      class="open-pm-author-btn inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-surface-850 hover:bg-surface-800 text-sky-300 border border-surface-700/80 font-medium transition cursor-pointer"
+                    >
+                      <span>Написать в ЛС</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      data-copy-id="${escapeHtml(post.id)}"
+                      class="copy-ref-btn inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-surface-800/80 transition cursor-pointer"
+                      title="Скопировать идентификатор треда"
+                    >
+                      <span class="font-mono">#${escapeHtml(post.id)}</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="${isExpanded ? 'block' : 'hidden'} pt-3 border-t border-surface-800 space-y-3">
+                  <div class="space-y-2">
+                    ${commentsHtml}
+                  </div>
+
+                  <form data-comment-form="${escapeHtml(post.id)}" class="comment-form flex flex-col sm:flex-row gap-2 pt-1">
+                    <input
+                      type="text"
+                      name="commentAuthor"
+                      maxlength="28"
+                      value="${escapeHtml(getCurrentDisplayAuthor())}"
+                      aria-label="Имя для комментария"
+                      class="sm:w-36 px-3 py-2 text-xs font-mono rounded-lg bg-surface-950 text-slate-100 placeholder-slate-500 border border-surface-700 focus:outline-none focus:border-sky-400"
+                    />
+                    <input
+                      type="text"
+                      name="commentText"
+                      required
+                      maxlength="500"
+                      placeholder="Добавить комментарий в ветку..."
+                      aria-label="Текст комментария"
+                      class="flex-1 px-3 py-2 text-xs sm:text-sm rounded-lg bg-surface-950 text-slate-100 placeholder-slate-500 border border-surface-700 focus:outline-none focus:border-sky-400"
+                    />
+                    <button
+                      type="submit"
+                      class="px-3.5 py-2 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-400/30 text-xs sm:text-sm font-medium transition cursor-pointer shrink-0"
+                    >
+                      Ответить
+                    </button>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </article>
+        `;
+      }).join('');
+
+      bindCardEvents();
+    }
+
+    function bindCardEvents() {
+      document.querySelectorAll('.vote-btn').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const postId = btn.getAttribute('data-vote-id');
+          const dir = Number(btn.getAttribute('data-vote-dir'));
+          const prev = state.userVotes[postId] || 0;
+          const next = prev === dir ? 0 : dir;
+          const delta = next - prev;
+          state.userVotes[postId] = next;
+
+          const post = state.posts.find((p) => p.id === postId);
+          if (post) {
+            post.score += delta;
+            if (isCloudConfigured()) {
+              try {
+                await sbRest(`posts?id=eq.${encodeURIComponent(postId)}`, {
+                  method: 'PATCH',
+                  body: JSON.stringify({ score: post.score }),
+                });
+              } catch (err) {
+                console.error('Ошибка обновления рейтинга:', err);
+              }
+            }
+          }
+          renderThreads();
+        });
+      });
+
+      document.querySelectorAll('.toggle-comments-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const postId = btn.getAttribute('data-toggle-comments');
+          if (state.expandedComments.has(postId)) {
+            state.expandedComments.delete(postId);
+          } else {
+            state.expandedComments.add(postId);
+          }
+          renderThreads();
+        });
+      });
+
+      document.querySelectorAll('.open-pm-author-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const author = btn.getAttribute('data-pm-author');
+          openDmWithPeer(author);
+        });
+      });
+
+      document.querySelectorAll('.copy-ref-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const idText = `#${btn.getAttribute('data-copy-id')}`;
+          try {
+            const tempInput = document.createElement('input');
+            tempInput.value = idText;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
+            showToast(`Скопирован идентификатор ${idText}`);
+          } catch (err) {
+            showToast(`Идентификатор треда: ${idText}`);
+          }
+        });
+      });
+
+      document.querySelectorAll('.comment-form').forEach((form) => {
+        form.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const postId = form.getAttribute('data-comment-form');
+          const authorInput = form.querySelector('input[name="commentAuthor"]');
+          const textInput = form.querySelector('input[name="commentText"]');
+
+          const author = (authorInput?.value || '').trim() || getCurrentDisplayAuthor();
+          const text = (textInput?.value || '').trim();
+          if (!text) return;
+
+          const targetPost = state.posts.find((p) => p.id === postId);
+          if (!targetPost) return;
+
+          const commentObj = {
+            id: `c-${Date.now()}`,
+            author,
+            createdAt: 'только что',
+            text,
+          };
+
+          targetPost.comments.push(commentObj);
+          state.expandedComments.add(postId);
+
+          if (isCloudConfigured()) {
+            try {
+              await sbRest('comments', {
+                method: 'POST',
+                body: JSON.stringify({
+                  id: commentObj.id,
+                  post_id: postId,
+                  author,
+                  text,
+                  created_label: 'только что',
+                }),
+              });
+            } catch (err) {
+              console.error('Ошибка отправки комментария:', err);
+              showToast('Комментарий добавлен локально; проверьте настройки базы');
+            }
+          }
+
+          renderThreads();
+          showToast('Комментарий добавлен в тред');
+        });
+      });
+    }
+
+    function renderDmModal() {
+      updateSessionUI();
+      const listEl = document.getElementById('dmConversationsList');
+      const headerEl = document.getElementById('dmActiveHeader');
+      const boxEl = document.getElementById('dmMessagesBox');
+      if (!listEl || !headerEl || !boxEl) return;
+
+      if (!Object.keys(state.directMessages).length) {
+        state.directMessages.kestrel_ops = [];
+      }
+
+      if (!state.activeDmPeer || !state.directMessages[state.activeDmPeer]) {
+        state.activeDmPeer = Object.keys(state.directMessages)[0];
+      }
+
+      listEl.innerHTML = Object.keys(state.directMessages)
+        .map((peer) => {
+          const active = state.activeDmPeer === peer;
+          const msgCount = state.directMessages[peer].length;
+          return `
+            <button
+              type="button"
+              data-dm-peer="${escapeHtml(peer)}"
+              class="dm-peer-btn w-full text-left px-3 py-2 rounded-lg border text-xs flex items-center justify-between transition cursor-pointer ${
+                active
+                  ? 'bg-sky-500/20 text-sky-300 border-sky-400/40 font-semibold'
+                  : 'bg-surface-850 text-slate-300 border-surface-800 hover:border-surface-700'
+              }"
+            >
+              <span class="font-mono truncate">${escapeHtml(peer)}</span>
+              <span class="font-mono text-[11px] text-slate-400">${msgCount}</span>
+            </button>
+          `;
+        })
+        .join('');
+
+      listEl.querySelectorAll('.dm-peer-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          state.activeDmPeer = btn.getAttribute('data-dm-peer');
+          renderDmModal();
+        });
+      });
+
+      headerEl.textContent = `Диалог с @${state.activeDmPeer}`;
+      const messages = state.directMessages[state.activeDmPeer] || [];
+
+      boxEl.innerHTML = messages.length
+        ? messages
+            .map(
+              (m) => `
+              <div class="p-2.5 rounded-lg bg-surface-900 border border-surface-800 space-y-1">
+                <div class="flex items-center justify-between text-[11px]">
+                  <span class="font-mono font-semibold text-sky-300">${escapeHtml(m.sender)}</span>
+                  <span class="text-slate-500">${escapeHtml(m.time)}</span>
+                </div>
+                <p class="text-xs sm:text-sm text-slate-200 break-words">${escapeHtml(m.text)}</p>
+              </div>
+            `
+            )
+            .join('')
+        : `<p class="text-xs text-slate-500 italic">Сообщений пока нет. Напишите первым.</p>`;
+    }
+
+    async function openDmModal() {
+      const modal = document.getElementById('dmModal');
+      if (!modal) return;
+      await loadCloudDms();
+      renderDmModal();
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function openDmWithPeer(peer) {
+      const cleanPeer = String(peer || '').trim();
+      if (!cleanPeer) return;
+      if (!state.directMessages[cleanPeer]) {
+        state.directMessages[cleanPeer] = [];
+      }
+      state.activeDmPeer = cleanPeer;
+      openDmModal();
+    }
+
+    function closeDmModal() {
+      const modal = document.getElementById('dmModal');
+      if (!modal) return;
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function setAuthTab(tab) {
+      state.authTab = tab;
+      const loginBtn = document.getElementById('tabLoginBtn');
+      const regBtn = document.getElementById('tabRegisterBtn');
+      const submitBtn = document.getElementById('authSubmitBtn');
+      const titleEl = document.getElementById('authModalTitle');
+      const errEl = document.getElementById('authError');
+
+      if (errEl) {
+        errEl.classList.add('hidden');
+        errEl.textContent = '';
+      }
+
+      if (tab === 'login') {
+        if (loginBtn) loginBtn.className = 'py-2 rounded-lg font-medium bg-sky-500/20 text-sky-300 border border-sky-400/30 cursor-pointer';
+        if (regBtn) regBtn.className = 'py-2 rounded-lg font-medium text-slate-400 hover:text-slate-200 cursor-pointer';
+        if (submitBtn) submitBtn.textContent = 'Войти';
+        if (titleEl) titleEl.textContent = 'Вход в анонимный аккаунт';
+      } else {
+        if (regBtn) regBtn.className = 'py-2 rounded-lg font-medium bg-sky-500/20 text-sky-300 border border-sky-400/30 cursor-pointer';
+        if (loginBtn) loginBtn.className = 'py-2 rounded-lg font-medium text-slate-400 hover:text-slate-200 cursor-pointer';
+        if (submitBtn) submitBtn.textContent = 'Зарегистрировать';
+        if (titleEl) titleEl.textContent = 'Регистрация (ник + пароль, без капчи)';
+      }
+    }
+
+    function openAuthModal() {
+      const modal = document.getElementById('authModal');
+      if (!modal) return;
+      setAuthTab(state.authTab);
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeAuthModal() {
+      const modal = document.getElementById('authModal');
+      if (!modal) return;
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function activateGuestMode() {
+      state.session = { mode: 'guest', username: 'гость_chrome' };
+      updateSessionUI();
+      renderThreads();
+      showToast('Активирован гостевой аккаунт');
+    }
+
+    function renderAll() {
+      updateSessionUI();
+      renderSubdreadBar();
+      renderTagBar();
+      renderSortButtons();
+      renderThreads();
+    }
+
+    function setComposerVisible(visible) {
+      const panel = document.getElementById('composerPanel');
+      const errorBox = document.getElementById('formError');
+      if (!panel) return;
+
+      if (errorBox) {
+        errorBox.classList.add('hidden');
+        errorBox.textContent = '';
+      }
+
+      if (visible) {
+        panel.classList.remove('hidden');
+        const authorInput = document.getElementById('threadAuthor');
+        if (authorInput && !authorInput.value.trim()) {
+          authorInput.value = getCurrentDisplayAuthor();
+        }
+        document.getElementById('threadTitle')?.focus();
+      } else {
+        panel.classList.add('hidden');
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      try {
+        renderAll();
+        await loadCloudData();
+
+        document.getElementById('refreshCloudBtn')?.addEventListener('click', async () => {
+          await loadCloudData();
+          showToast('Лента обновлена');
+        });
+
+        // Модальное окно напоминания при каждом заходе
+        const hygieneModal = document.getElementById('hygieneModal');
+        const hygieneCheckbox = document.getElementById('hygieneConfirmCheckbox');
+        const hygieneError = document.getElementById('hygieneError');
+
+        const closeHygieneIfConfirmed = () => {
+          if (!hygieneCheckbox?.checked) {
+            if (hygieneError) hygieneError.classList.remove('hidden');
+            return false;
+          }
+          if (hygieneError) hygieneError.classList.add('hidden');
+          hygieneModal?.classList.add('hidden');
+          return true;
+        };
+
+        document.getElementById('confirmHygieneBtn')?.addEventListener('click', () => {
+          if (closeHygieneIfConfirmed()) {
+            showToast('VPN и гостевой режим подтверждены');
+          }
+        });
+
+        document.getElementById('continueAsGuestModalBtn')?.addEventListener('click', () => {
+          if (hygieneCheckbox) hygieneCheckbox.checked = true;
+          if (closeHygieneIfConfirmed()) {
+            activateGuestMode();
+          }
+        });
+
+        document.getElementById('openHygieneBtn')?.addEventListener('click', () => {
+          if (hygieneCheckbox) hygieneCheckbox.checked = false;
+          hygieneModal?.classList.remove('hidden');
+        });
+
+        // Авторизация / регистрация (никнейм + пароль без капчи)
+        document.getElementById('openAuthBtn')?.addEventListener('click', openAuthModal);
+        document.getElementById('closeAuthModalBtn')?.addEventListener('click', closeAuthModal);
+        document.getElementById('tabLoginBtn')?.addEventListener('click', () => setAuthTab('login'));
+        document.getElementById('tabRegisterBtn')?.addEventListener('click', () => setAuthTab('register'));
+
+        document.getElementById('switchToGuestBtn')?.addEventListener('click', () => {
+          activateGuestMode();
+          closeAuthModal();
+        });
+
+        document.getElementById('authForm')?.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const username = (document.getElementById('authUsername')?.value || '').trim();
+          const password = document.getElementById('authPassword')?.value || '';
+          const errEl = document.getElementById('authError');
+
+          const showAuthError = (msg) => {
+            if (!errEl) return;
+            errEl.textContent = msg;
+            errEl.classList.remove('hidden');
+          };
+
+          if (username.length < 2 || password.length < 4) {
+            showAuthError('Никнейм от 2 символов, пароль от 4 символов.');
+            return;
+          }
+
+          const passHash = await hashPassword(password);
+
+          if (isCloudConfigured()) {
+            try {
+              const existingRows = await sbRest(`accounts?username=eq.${encodeURIComponent(username)}&select=username,password_hash`);
+              const existing = existingRows && existingRows[0];
+
+              if (state.authTab === 'register') {
+                if (existing) {
+                  showAuthError('Такой никнейм уже занят. Выберите другой или войдите.');
+                  return;
+                }
+                await sbRest('accounts', {
+                  method: 'POST',
+                  body: JSON.stringify({ username, password_hash: passHash }),
+                });
+                state.session = { mode: 'user', username };
+                updateSessionUI();
+                renderThreads();
+                closeAuthModal();
+                showToast(`Аккаунт ${username} зарегистрирован`);
+              } else {
+                if (!existing || existing.password_hash !== passHash) {
+                  showAuthError('Неверный никнейм или пароль.');
+                  return;
+                }
+                state.session = { mode: 'user', username };
+                updateSessionUI();
+                renderThreads();
+                closeAuthModal();
+                showToast(`Вход выполнен как ${username}`);
+              }
+              return;
+            } catch (err) {
+              showAuthError(`Ошибка аккаунта: ${err.message}`);
+              return;
+            }
+          }
+
+          // Локальный fallback если Supabase ещё не настроен
+          if (state.authTab === 'register') {
+            if (state.users[username]) {
+              showAuthError('Такой никнейм уже занят.');
+              return;
+            }
+            state.users[username] = { passHash };
+            state.session = { mode: 'user', username };
+            updateSessionUI();
+            renderThreads();
+            closeAuthModal();
+            showToast(`Аккаунт ${username} создан (локально)`);
+          } else {
+            const existing = state.users[username];
+            if (!existing || existing.passHash !== passHash) {
+              showAuthError('Неверный никнейм или пароль.');
+              return;
+            }
+            state.session = { mode: 'user', username };
+            updateSessionUI();
+            renderThreads();
+            closeAuthModal();
+            showToast(`Вход выполнен как ${username}`);
+          }
+        });
+
+        // Личные сообщения
+        document.getElementById('openDmBtn')?.addEventListener('click', openDmModal);
+        document.getElementById('closeDmModalBtn')?.addEventListener('click', closeDmModal);
+
+        document.getElementById('newDmThreadForm')?.addEventListener('submit', (e) => {
+          e.preventDefault();
+          const input = document.getElementById('newDmRecipientInput');
+          const peer = (input?.value || '').trim();
+          if (!peer) return;
+          if (!state.directMessages[peer]) {
+            state.directMessages[peer] = [];
+          }
+          state.activeDmPeer = peer;
+          if (input) input.value = '';
+          renderDmModal();
+        });
+
+        document.getElementById('sendDmForm')?.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const input = document.getElementById('dmMessageInput');
+          const text = (input?.value || '').trim();
+          if (!text || !state.activeDmPeer) return;
+
+          const sender = getCurrentDisplayAuthor();
+          const recipient = state.activeDmPeer;
+          const msgObj = {
+            id: `dm-${Date.now()}`,
+            sender,
+            recipient,
+            time: 'только что',
+            text,
+          };
+
+          if (!state.directMessages[recipient]) {
+            state.directMessages[recipient] = [];
+          }
+          state.directMessages[recipient].push(msgObj);
+
+          if (isCloudConfigured()) {
+            try {
+              await sbRest('direct_messages', {
+                method: 'POST',
+                body: JSON.stringify({
+                  id: msgObj.id,
+                  sender,
+                  recipient,
+                  text,
+                  created_label: 'только что',
+                }),
+              });
+            } catch (err) {
+              console.error('Ошибка отправки ЛС:', err);
+            }
+          }
+
+          if (input) input.value = '';
+          renderDmModal();
+          showToast('Личное сообщение отправлено');
+        });
+
+        // Поиск и сортировка
+        document.getElementById('searchInput')?.addEventListener('input', (e) => {
+          state.searchQuery = e.target.value;
+          renderThreads();
+        });
+
+        document.querySelectorAll('.sort-btn').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            state.sortBy = btn.getAttribute('data-sort') || 'hot';
+            renderAll();
+          });
+        });
+
+        // Форма создания треда
+        document.getElementById('openComposerBtn')?.addEventListener('click', () => setComposerVisible(true));
+        document.getElementById('closeComposerBtn')?.addEventListener('click', () => setComposerVisible(false));
+        document.getElementById('cancelComposerBtn')?.addEventListener('click', () => setComposerVisible(false));
+
+        document.getElementById('newThreadForm')?.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const title = (document.getElementById('threadTitle')?.value || '').trim();
+          const body = (document.getElementById('threadBody')?.value || '').trim();
+          const flair = document.getElementById('threadFlair')?.value || 'Инструменты';
+          const subdread = document.getElementById('threadSubdread')?.value || '/d/netsec-lab';
+          const author = (document.getElementById('threadAuthor')?.value || '').trim() || getCurrentDisplayAuthor();
+          const videoUrlInput = (document.getElementById('threadVideoUrl')?.value || '').trim();
+          const videoFileInput = document.getElementById('threadVideoFile');
+          const folderName = (document.getElementById('threadFolderName')?.value || '').trim();
+          const folderNote = (document.getElementById('threadFolderNote')?.value || '').trim();
+          const errorBox = document.getElementById('formError');
+
+          if (!title || !body) {
+            if (errorBox) {
+              errorBox.textContent = 'Заполни заголовок и текст обсуждения перед публикацией.';
+              errorBox.classList.remove('hidden');
+            }
+            return;
+          }
+
+          let finalVideoUrl = sanitizeMediaUrl(videoUrlInput);
+          if (!finalVideoUrl && videoFileInput && videoFileInput.files && videoFileInput.files[0]) {
+            const file = videoFileInput.files[0];
+            if (isCloudConfigured()) {
+              try {
+                finalVideoUrl = await uploadVideoToStorage(file);
+              } catch (err) {
+                console.error('Ошибка загрузки видео:', err);
+                finalVideoUrl = URL.createObjectURL(file);
+              }
+            } else {
+              finalVideoUrl = URL.createObjectURL(file);
+            }
+          }
+
+          const folders = [];
+          if (folderName || folderNote) {
+            folders.push({
+              name: folderName || 'материалы',
+              items: folderNote ? [folderNote] : ['Пустая папка'],
+            });
+          }
+
+          const maxOrder = state.posts.reduce((max, p) => Math.max(max, p.orderIndex), 0);
+          const newPost = {
+            id: `t-${Date.now().toString().slice(-5)}`,
+            subdread,
+            flair,
+            title,
+            body,
+            author,
+            role: state.session.mode === 'guest' ? 'Гость' : 'Участник',
+            createdAt: 'только что',
+            orderIndex: maxOrder + 1,
+            score: 1,
+            videoUrl: finalVideoUrl,
+            folders,
+            comments: [],
+          };
+
+          state.posts.unshift(newPost);
+          state.userVotes[newPost.id] = 1;
+          state.sortBy = 'new';
+
+          if (isCloudConfigured()) {
+            try {
+              await sbRest('posts', {
+                method: 'POST',
+                body: JSON.stringify({
+                  id: newPost.id,
+                  subdread: newPost.subdread,
+                  flair: newPost.flair,
+                  title: newPost.title,
+                  body: newPost.body,
+                  author: newPost.author,
+                  role: newPost.role,
+                  created_label: newPost.createdAt,
+                  order_index: newPost.orderIndex,
+                  score: newPost.score,
+                  video_url: newPost.videoUrl,
+                  folders: newPost.folders,
+                }),
+              });
+            } catch (err) {
+              console.error('Ошибка сохранения треда в облаке:', err);
+              showToast('Тред добавлен локально; проверьте таблицы в Supabase');
+            }
+          }
+
+          e.target.reset();
+          setComposerVisible(false);
+          renderAll();
+          showToast('Новый тред опубликован');
+        });
+
+        // Сброс фильтров
+        const resetFilters = () => {
+          state.activeSubdread = 'all';
+          state.activeFlair = 'Все теги';
+          state.sortBy = 'hot';
+          state.searchQuery = '';
+          const searchInput = document.getElementById('searchInput');
+          if (searchInput) searchInput.value = '';
+          renderAll();
+          showToast('Фильтры сброшены');
+        };
+
+        document.getElementById('resetAllBtn')?.addEventListener('click', resetFilters);
+        document.getElementById('emptyResetBtn')?.addEventListener('click', resetFilters);
+      } catch (err) {
+        console.error('Ошибка инициализации интерфейса форума:', err);
+      }
+    });
+  </script>
+</body>
+</html>
